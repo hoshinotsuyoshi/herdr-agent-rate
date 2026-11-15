@@ -1,8 +1,8 @@
-# Rate
+# Agent rate
 
 A strip at the bottom of the sidebar with the 5-hour and weekly rate limits of Claude Code and Codex. Each window has a "time" bar (how much of the window has gone by) over a "used" bar (how much of the limit is used); when used gets ahead of time, the used bar turns red.
 
-![Rate](preview.png)
+![Agent rate](preview.png)
 
 ## What you see
 
@@ -27,7 +27,7 @@ A window with no value, or whose reset time has passed, shows empty tracks and "
 
 ## Built from
 
-- One mod, `mods/rate/` (`mod.json`: `"place": "none"`, title "Claude / Codex rate limits"), placed by the layout as a block: `{ "type": "block", "content": { "mod": "rate" }, "size": { "px": 170 } }`. No props.
+- One mod, `mods/agent-rate/` (`mod.json`: `"place": "none"`, title "Claude / Codex rate limits"), placed by the layout as a block: `{ "type": "block", "content": { "mod": "agent-rate" }, "size": { "px": 170 } }`. No props.
 - `gpui-kit` (`View`, `div`, `image`), `gpui-base` (`h_flex`, `v_flex`), `herdr` (`exec`, `theme`). Theme colors: `chrome`, `border`, `dim`, `muted`, `accent`, `blocked`, `foreground`, `hover`.
 - `cx.timer.every(10000, ...)` and `cx.spawn` reading each source in turn, then `cx.notify()`. No shell, so it runs the same on macOS, Linux and Windows.
 - Icons are Herdr's own `icons/claude.svg` and `icons/codex.svg`, drawn with `image(...)` (they are in color).
@@ -46,7 +46,7 @@ A window with no value, or whose reset time has passed, shows empty tracks and "
 
 ## Done when
 
-- `herdr-app check mods/rate` passes.
+- `herdr-app check mods/agent-rate` passes.
 - With `~/.cache/claude/rate-limits.json` holding a future `resets_at`, Claude's bars show the percents and the reset time; set `used_percentage` above the time percent and the used bar and its number turn red.
 - After a Codex reply, the Codex percents match the last `rate_limits` in the newest rollout log.
 - With the file missing, or `resets_at` in the past, that window shows "—" and empty tracks.

@@ -12,7 +12,7 @@ runs:
   steps:
     - name: Set up MSYS2
       if: runner.os == 'Windows'
-      uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
+      uses: msys2/setup-msys2@v2.33.0
       with:
         msystem: UCRT64
         update: false
@@ -26,7 +26,7 @@ runs:
     # In the workspace (and .gitignore), so that the cache, bash and MSYS2 all see the same path
     - name: Cache Spinel
       id: cache
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      uses: actions/cache@v6.1.0
       with:
         path: .spinel
         key: spinel-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.spinel-version') }}

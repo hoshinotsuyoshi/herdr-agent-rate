@@ -68,13 +68,13 @@ Ask the agent in Herdr to add it: give it `herdr.dev/mods/hoshinotsuyoshi/herdr-
 
 ```sh
 git clone https://github.com/hoshinotsuyoshi/herdr-agent-rate.git
-cp -R herdr-agent-rate/mods/rate ~/.config/herdr-app/mods/rate
+cp -R herdr-agent-rate/mods/agent-rate ~/.config/herdr-app/mods/agent-rate
 ```
 
 Then put it in your layout (`~/.config/herdr-app/layouts/<name>.json`). It is drawn for a sidebar column (268px wide in the preview) and needs about 170px of height, for example at the bottom of the sidebar:
 
 ```json
-{ "id": "rate", "type": "block", "content": { "mod": "rate" }, "size": { "px": 170 } }
+{ "id": "agent-rate", "type": "block", "content": { "mod": "agent-rate" }, "size": { "px": 170 } }
 ```
 
 ## The binary
@@ -87,10 +87,12 @@ Then put it in your layout (`~/.config/herdr-app/layouts/<name>.json`). It is dr
 ruby test/agent_rate_test.rb
 script/build-spinel.sh .spinel   # Spinel at .spinel-version, built in .spinel
 .spinel/bin/spinel bin/agent-rate -o agent-rate && AR_BIN=./agent-rate ruby test/agent_rate_test.rb
-herdr-app check mods/rate
+herdr-app check mods/agent-rate
 ```
 
 Pushing a tag `v*` builds the binaries and creates a release. CI builds macOS only on manual runs.
+
+GitHub Actions dependencies, including the ones `.github/actions/build` uses (referenced as `$/.github/actions/build`), are pinned in `.github/workflows/actions.lock`. After changing a `uses:`, run `gh actions-lock` ([gh-actions-lock](https://github.com/github/gh-actions-lock)) to update it.
 
 ## License
 
