@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, Ruby ${{ matrix.ruby }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # The lowest version the README requires (Ruby 3.4+) and the latest, and the script on Windows.
+        # setup-ruby installs the latest patch of each
+        include:
+          - { os: ubuntu-24.04, ruby: "3.4" }
+          - { os: ubuntu-24.04, ruby: "4.0" }
+          - { os: windows-latest, ruby: "4.0" }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: ${{ matrix.ruby }}
+
+      - name: Syntax check
+        run: |
+          ruby -v
+          ruby -wc bin/agent-rate
+          for f in test/*.rb; do ruby -wc "$f"; done
+
+      - name: Test (fail on Ruby warnings)
+        run: |
+          ruby -w test/agent_rate_test.rb 2> "$RUNNER_TEMP/stderr.log" || { cat "$RUNNER_TEMP/stderr.log"; exit 1; }
+          cat "$RUNNER_TEMP/stderr.log"
+          if grep -n 'warning:' "$RUNNER_TEMP/stderr.log"; then
+            echo "::error::Ruby printed warnings"
+            exit 1
+          fi
+
+  # The same tests against a binary compiled from bin/agent-rate with Spinel (see .spinel-version).
+  # macOS only on manual runs: macOS minutes cost more, and it is easy to try on a Mac by hand.
+  binary:
+    name: binary (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["ubuntu-22.04", "ubuntu-22.04-arm", "windows-latest", "macos-15"]') || fromJSON('["ubuntu-22.04", "ubuntu-22.04-arm", "windows-latest"]') }}
+    steps:
+      # Spinel compares the headers it generates byte for byte; CRLF checkouts would differ
+      - run: git config --global core.autocrlf false
+        shell: bash
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/build
+        id: build
+
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: "4.0"
+
+      - name: Test the binary (fail on Ruby warnings)
+        shell: bash
+        env:
+          AR_BIN: ${{ steps.build.outputs.binary }}
+        run: |
+          ruby -w test/agent_rate_test.rb 2> "$RUNNER_TEMP/stderr.log" || { cat "$RUNNER_TEMP/stderr.log"; exit 1; }
+          cat "$RUNNER_TEMP/stderr.log"
+          if grep -n 'warning:' "$RUNNER_TEMP/stderr.log"; then
+            echo "::error::Ruby printed warnings"
+            exit 1
+          fi

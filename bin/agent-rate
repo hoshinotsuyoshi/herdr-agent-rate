@@ -1,0 +1,94 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# The helper for the herdr-agent-rate mod: it gets the 5-hour and weekly rate limits of
+# Claude Code and Codex where the mod can read them.
+#
+#   agent-rate statusline   A Claude Code status line command (settings.json "statusLine").
+#                           Claude Code passes the session as JSON on stdin. This prints
+#                             <model> | ctx <used>k / <size>k (<percent>%)
+#                           and, when the JSON has rate_limits, writes them with updated_at
+#                           to ~/.cache/claude/rate-limits.json (replaced atomically). Those
+#                           windows are the account's, so any session may write them.
+#   agent-rate codex        Prints Codex's latest rate limits as one line of JSON in the same
+#                           shape, {"five_hour": {...}, "seven_day": {...}}, read from the
+#                           newest session logs ($CODEX_HOME or ~/.codex, sessions/**/rollout-*.jsonl).
+#                           Prints {} when there is none.
+
+require "json"
+require "fileutils"
+
+module AgentRate
+  # Codex's window lengths in minutes and the names Claude uses for them
+  CODEX_WINDOWS = { 300 => "five_hour", 10_080 => "seven_day" }.freeze
+  # How many of the newest logs to look in: a session that just started has no rate_limits yet
+  CODEX_LOGS = 5
+
+  def self.statusline(input)
+    rate = input["rate_limits"]
+    if rate
+      dir = File.join(Dir.home, ".cache", "claude")
+      begin
+        FileUtils.mkdir_p(dir)
+        tmp = File.join(dir, "rate-limits.json.#{Process.pid}")
+        File.write(tmp, JSON.generate(rate.merge("updated_at" => Time.now.to_i)) + "\n")
+        File.rename(tmp, File.join(dir, "rate-limits.json"))
+      rescue SystemCallError
+        # The status line still prints; the mod keeps showing the last value it read
+      end
+    end
+
+    c = input["context_window"] || {}
+    u = c["current_usage"] || {}
+    used = (u["input_tokens"] || 0) + (u["cache_creation_input_tokens"] || 0) + (u["cache_read_input_tokens"] || 0)
+    model = (input["model"] || {})["display_name"] || ""
+    size = c["context_window_size"] || 0
+    pct = c["used_percentage"] || 0
+    "#{model} | ctx #{used / 1000}k / #{size / 1000}k (#{pct}%)"
+  end
+
+  def self.codex_home
+    home = ENV["CODEX_HOME"]
+    home.nil? || home.empty? ? File.join(Dir.home, ".codex") : home
+  end
+
+  # The newest logs first, by when they were last written: a long session started days ago
+  # can still be the one replying now
+  def self.codex_logs
+    files = Dir.glob(File.join(codex_home, "sessions", "*", "*", "*", "rollout-*.jsonl"))
+    files.map { |f| [File.mtime(f).to_i, f] }.sort.reverse.first(CODEX_LOGS).map { |pair| pair[1] }
+  end
+
+  def self.codex
+    codex_logs.each do |f|
+      last = nil
+      File.foreach(f) { |line| last = line if line.include?('"rate_limits":{') }
+      next unless last
+
+      limits = JSON.parse(last)["payload"]["rate_limits"]
+      out = {}
+      [limits["primary"], limits["secondary"]].each do |w|
+        next unless w.is_a?(Hash)
+
+        key = CODEX_WINDOWS[w["window_minutes"]]
+        out[key] = { "used_percentage" => w["used_percent"], "resets_at" => w["resets_at"] } if key
+      end
+      return out
+    end
+    {}
+  end
+
+  def self.main(argv)
+    case argv[0]
+    when "statusline"
+      puts statusline(JSON.parse($stdin.read))
+    when "codex"
+      puts JSON.generate(codex)
+    else
+      warn "usage: agent-rate statusline | agent-rate codex"
+      exit 2
+    end
+  end
+end
+
+AgentRate.main(ARGV)

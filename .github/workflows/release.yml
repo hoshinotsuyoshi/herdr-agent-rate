@@ -1,0 +1,88 @@
+name: Release
+
+# Pushing a tag v* builds agent-rate for each platform with Spinel (see .spinel-version), tests it,
+# and attaches agent-rate-<tag>-<target>.tar.gz and SHA256SUMS to a release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          # The oldest Ubuntu images, so the binaries run with older glibc too
+          - { os: ubuntu-22.04, target: linux-x86_64 }
+          - { os: ubuntu-22.04-arm, target: linux-arm64 }
+          - { os: macos-15, target: darwin-arm64 }
+          - { os: windows-latest, target: windows-x86_64 }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # Spinel compares the headers it generates byte for byte; CRLF checkouts would differ
+      - run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/build
+        id: build
+
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: "4.0"
+
+      - name: Test the binary
+        env:
+          AR_BIN: ${{ steps.build.outputs.binary }}
+        run: ruby -w test/agent_rate_test.rb
+
+      - name: Package
+        env:
+          TAG: ${{ github.ref_name }}
+          TARGET: ${{ matrix.target }}
+          BIN: ${{ steps.build.outputs.binary }}
+        run: |
+          name="agent-rate-$TAG-$TARGET"
+          mkdir "$RUNNER_TEMP/$name"
+          cp "$BIN" LICENSE THIRD_PARTY_NOTICES "$RUNNER_TEMP/$name/"
+          tar -C "$RUNNER_TEMP" -czf "$name.tar.gz" "$name"
+          tar -tzvf "$name.tar.gz"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ matrix.target }}
+          path: agent-rate-*.tar.gz
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # the only job that writes: it creates the release
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cd dist
+          sha256sum agent-rate-*.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes --verify-tag \
+            agent-rate-*.tar.gz SHA256SUMS
