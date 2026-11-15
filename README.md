@@ -13,6 +13,8 @@ Each window has two bars. The top one is how much of the window has gone by, wit
 
 The mod reads both every 10 seconds. The limits are your account's, so any session updates them, but only when it gets a reply: a window shows `—` once it has reset and no session has replied since, and so does a source the mod can't read.
 
+There is one file for Claude, and every Claude Code that runs `agent-rate statusline` overwrites it. If you use Claude Code with more than one account (another `CLAUDE_CONFIG_DIR`, say), they take turns writing their own limits, and the bars jump between them. Use `agent-rate statusline` with only one of them.
+
 ## Requirements
 
 - Herdr (tested with herdr-app 0.1.15 on macOS). The mod runs no shell, so the same files work on macOS, Linux and Windows.
@@ -47,7 +49,7 @@ Set it in `~/.claude/settings.json`:
 { "statusLine": { "type": "command", "command": "agent-rate statusline" } }
 ```
 
-It prints `<model> | ctx <used>k / <size>k (<percent>%)`. If you already have a status line you like, keep it and add only the part that saves the limits, for example with jq:
+It prints `<model> | ctx <used>k / <size>k (<percent>%)`. If the status line stays empty, Claude Code can't find `agent-rate` on its `PATH`: write the full path instead, such as `~/.local/bin/agent-rate statusline`. If you already have a status line you like, keep it and add only the part that saves the limits, for example with jq:
 
 ```sh
 input=$(cat)
