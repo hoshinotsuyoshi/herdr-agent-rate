@@ -13,7 +13,7 @@ A block about 170px high across the sidebar (268px wide in the preview), on the 
 
 Each group is a row: its label ("5h" / "week", 30px wide, `dim`) and, 8px to the right, two bars stacked (13px tall each):
 
-- **time**: "time" (28px, `dim`), a track (5px tall, radius 3, `hover`) filled with `muted` to the percent, the percent as an integer (30px, `foreground`), and the reset time (34px, `dim`): `HH:MM` for 5h, `M/D` for week, in local time.
+- **time**: "time" (28px, `dim`), a track (5px tall, radius 3, `hover`) filled with `muted` to the percent, the percent as an integer (30px, `foreground`), and the reset time (40px, `dim`): `HH:MM` for 5h, `Nov 19` (English month, then the day) for week, in local time.
 - **used**: "used", a track filled with `accent` to the percent (`blocked` when used is greater than time, and the percent text turns `blocked` too), the percent, and nothing on the right.
 
 A window with no value, or whose reset time has passed, shows empty tracks and "—" in `dim` for both percents.
@@ -39,7 +39,8 @@ A window with no value, or whose reset time has passed, shows empty tracks and "
 - A window whose `resets_at` has passed must show "—", not the old percent: the tool has started counting from 0 but nothing has told the mod yet.
 - Codex's newest log may have no `rate_limits` yet (a session that just started), so look at more than one file. Match `"rate_limits":{` so that only lines with an object count.
 - Codex names the windows primary / secondary; tell them apart by `window_minutes`, not by order.
-- Bars and text need fixed widths (28 / 30 / 34px) or the tracks don't line up across rows.
+- Bars and text need fixed widths (28 / 30 / 40px) or the tracks don't line up across rows.
+- Write the week's date with the English month (`Nov 19`), not `11/19`: in much of the world that reads day first.
 - Any read or parse failure shows "—" for that source; it must not stop the other one.
 - 74px is enough for one source only; with both it needs about 170px.
 

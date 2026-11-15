@@ -13,10 +13,12 @@ import { exec, home, readTextFile, theme } from "herdr";
 // tortoise), the bottom one is the usage (the hare). When usage gets ahead, it turns red.
 const pad = (n) => String(n).padStart(2, "0");
 const clamp = (x) => Math.max(0, Math.min(100, x));
+// The month in English, so no one reads the date in the wrong order (11/12 is December 11 in much of the world)
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const WINDOWS = [
   { key: "five_hour", label: "5h", seconds: 5 * 3600, when: (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}` },
-  { key: "seven_day", label: "week", seconds: 7 * 86400, when: (d) => `${d.getMonth() + 1}/${d.getDate()}` },
+  { key: "seven_day", label: "week", seconds: 7 * 86400, when: (d) => `${MONTHS[d.getMonth()]} ${d.getDate()}` },
 ];
 
 // Each returns the JSON text, or null. A missing file or agent-rate shows "—" for that source
@@ -73,7 +75,7 @@ export default class Rate extends View {
         .child(div().flex_1().h(5).rounded(3).bg(t.hover)
           .child(div().h_full().rounded(3).bg(color).w(`${pct ?? 0}%`)))
         .child(div().w(30).flex_none().text_color(pct === null ? t.dim : color === t.blocked ? t.blocked : t.foreground).child(text))
-        .child(div().w(34).flex_none().text_color(t.dim).child(right));
+        .child(div().w(40).flex_none().text_color(t.dim).child(right));
     const group = (src, w) => {
       const v = this.rate[src.key]?.[w.key];
       // A window past resets_at counts from 0% again, so don't show the old value
