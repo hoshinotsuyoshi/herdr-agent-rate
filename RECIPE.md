@@ -13,8 +13,8 @@ A block about 170px high across the sidebar (268px wide in the preview), on the 
 
 Each group is a row: its label ("5h" / "week", 30px wide, `dim`) and, 8px to the right, two bars stacked (13px tall each):
 
-- **time**: "time" (28px, `dim`), a track (5px tall, radius 3, `hover`) filled with `muted` to the percent, the percent as an integer (30px, `foreground`), and the reset time (40px, `dim`): `HH:MM` for 5h, `Nov 19` (English month, then the day) for week, in local time.
-- **used**: "used", a track filled with `accent` to the percent (`blocked` when used is greater than time, and the percent text turns `blocked` too), the percent, and nothing on the right.
+- **time**: "time" (28px, `dim`), a track (5px tall, radius 3, `hover`) filled with `muted` to the percent, the percent as an integer (30px, `foreground`), and the reset value (40px, `dim`): `HH:MM` for 5h, `Nov 19` (English month, then the day) for week, in local time.
+- **used**: "used", a track filled with `accent` to the percent (`blocked` when used is greater than time, and the percent text turns `blocked` too), the percent, and the weekly reset time (`HH:MM`, 24-hour local time) on the right in the same 40px `dim` column. The 5h row leaves that column empty.
 
 A window with no value, or whose reset time has passed, shows empty tracks and "—" in `dim` for both percents.
 
@@ -40,13 +40,13 @@ A window with no value, or whose reset time has passed, shows empty tracks and "
 - Codex's newest log may have no `rate_limits` yet (a session that just started), so look at more than one file. Match `"rate_limits":{` so that only lines with an object count.
 - Codex names the windows primary / secondary; tell them apart by `window_minutes`, not by order.
 - Bars and text need fixed widths (28 / 30 / 40px) or the tracks don't line up across rows.
-- Write the week's date with the English month (`Nov 19`), not `11/19`: in much of the world that reads day first.
+- Write the week's date with the English month (`Nov 19`), not `11/19`: in much of the world that reads day first. Put its local 24-hour time on the used row without increasing the group's size.
 - Any read or parse failure shows "—" for that source; it must not stop the other one.
 - 74px is enough for one source only; with both it needs about 170px.
 
 ## Done when
 
 - `herdr-app check mods/agent-rate` passes.
-- With `~/.cache/claude/rate-limits.json` holding a future `resets_at`, Claude's bars show the percents and the reset time; set `used_percentage` above the time percent and the used bar and its number turn red.
+- With `~/.cache/claude/rate-limits.json` holding a future `resets_at`, Claude's bars show the percents and the reset time (date above time for week); set `used_percentage` above the time percent and the used bar and its number turn red.
 - After a Codex reply, the Codex percents match the last `rate_limits` in the newest rollout log.
 - With the file missing, or `resets_at` in the past, that window shows "—" and empty tracks.

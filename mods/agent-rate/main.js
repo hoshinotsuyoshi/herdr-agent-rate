@@ -18,7 +18,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 const WINDOWS = [
   { key: "five_hour", label: "5h", seconds: 5 * 3600, when: (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}` },
-  { key: "seven_day", label: "week", seconds: 7 * 86400, when: (d) => `${MONTHS[d.getMonth()]} ${d.getDate()}` },
+  { key: "seven_day", label: "week", seconds: 7 * 86400, when: (d) => `${MONTHS[d.getMonth()]} ${d.getDate()}`, whenUsed: (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}` },
 ];
 
 // Each returns the JSON text, or null. A missing file or agent-rate shows "—" for that source
@@ -83,11 +83,12 @@ export default class Rate extends View {
       const time = live ? clamp(100 - ((v.resets_at - now) / w.seconds) * 100) : null;
       const used = live ? clamp(v.used_percentage) : null;
       const over = live && used > time;
+      const reset = live ? new Date(v.resets_at * 1000) : null;
       return h_flex().id(`${src.key}-${w.key}`).gap(8).items_start()
         .child(div().w(30).flex_none().text_color(t.dim).child(w.label))
         .child(v_flex().flex_1().min_w(0)
-          .child(bar(`${src.key}-${w.key}-time`, "time", time, t.muted, live ? `${Math.round(time)}%` : "—", live ? w.when(new Date(v.resets_at * 1000)) : ""))
-          .child(bar(`${src.key}-${w.key}-used`, "used", used, over ? t.blocked : t.accent, live ? `${Math.round(used)}%` : "—", "")));
+          .child(bar(`${src.key}-${w.key}-time`, "time", time, t.muted, live ? `${Math.round(time)}%` : "—", reset ? w.when(reset) : ""))
+          .child(bar(`${src.key}-${w.key}-used`, "used", used, over ? t.blocked : t.accent, live ? `${Math.round(used)}%` : "—", reset && w.whenUsed ? w.whenUsed(reset) : "")));
     };
     return v_flex().size_full().px(14).py(6).gap(5).justify_center().text_size(11).bg(t.chrome).border_t(1).border_color(t.border)
       .children(SOURCES.map((src) => v_flex().id(src.key).gap(3)

@@ -4,7 +4,7 @@ A [Herdr](https://herdr.dev) mod that shows the 5-hour and weekly rate limits of
 
 ![herdr-agent-rate](preview.png)
 
-Each window has two bars. The top one is how much of the window has gone by, with the time it resets; the bottom one is how much of the limit you have used. When usage gets ahead of time, the usage bar turns red: at this pace you run out before the window resets.
+Each window has two bars. The top one is how much of the window has gone by; the bottom one is how much of the limit you have used. The 5-hour reset time appears beside the top bar. The weekly reset date appears beside the top bar, with its 24-hour local time beside the bottom bar. When usage gets ahead of time, the usage bar turns red: at this pace you run out before the window resets.
 
 ## How the numbers get there
 
