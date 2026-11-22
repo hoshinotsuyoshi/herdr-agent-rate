@@ -2,14 +2,15 @@
 # frozen_string_literal: true
 
 # The helper for the herdr-agent-rate mod: it gets the 5-hour and weekly rate limits of
-# Claude Code and Codex where the mod can read them.
+# Claude Code, Codex, and Antigravity where the mod can read them.
 #
-#   agent-rate statusline   A Claude Code status line command (settings.json "statusLine").
-#                           Claude Code passes the session as JSON on stdin. This prints
+#   agent-rate statusline   A Claude Code / Antigravity status line command (settings.json "statusLine").
+#                           Claude Code or Antigravity passes the session as JSON on stdin. This prints
 #                             <model> | ctx <used>k / <size>k (<percent>%)
-#                           and, when the JSON has rate_limits, writes them with updated_at
-#                           to ~/.cache/claude/rate-limits.json (replaced atomically). Those
-#                           windows are the account's, so any session may write them.
+#                           and, when the JSON has rate limits:
+#                             - Claude: writes them with updated_at to ~/.cache/claude/rate-limits.json
+#                             - Antigravity: converts quota and writes them to ~/.cache/antigravity/rate-limits.json
+#                           Those windows are the account's, so any session may write them.
 #   agent-rate codex        Prints Codex's latest rate limits as one line of JSON in the same
 #                           shape, {"five_hour": {...}, "seven_day": {...}}, read from the
 #                           newest session logs ($CODEX_HOME or ~/.codex, sessions/**/rollout-*.jsonl).
@@ -24,18 +25,56 @@ module AgentRate
   # How many of the newest logs to look in: a session that just started has no rate_limits yet
   CODEX_LOGS = 5
 
+  def self.write_rate_file(dir, rate)
+    FileUtils.mkdir_p(dir)
+    tmp = File.join(dir, "rate-limits.json.#{Process.pid}")
+    File.write(tmp, JSON.generate(rate.merge("updated_at" => Time.now.to_i)) + "\n")
+    File.rename(tmp, File.join(dir, "rate-limits.json"))
+  rescue SystemCallError
+    # The status line still prints; the mod keeps showing the last value it read
+  end
+
+  def self.parse_time(val)
+    return val if val.is_a?(Integer) || val.is_a?(Float)
+    if val.is_a?(String) && val =~ /\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/
+      Time.utc($1.to_i, $2.to_i, $3.to_i, $4.to_i, $5.to_i, $6.to_i).to_i
+    end
+  end
+
+  def self.extract_agy_rate(quota, now: Time.now.to_i)
+    return nil unless quota.is_a?(Hash)
+
+    out = {}
+    quota.each do |k, v|
+      next unless v.is_a?(Hash)
+
+      name = k.to_s.downcase
+      reset_in = v["reset_in_seconds"]&.to_i
+      key = if name.include?("5h") || name.include?("five") || (reset_in && reset_in <= 18_000)
+              "five_hour"
+            elsif name.include?("week") || name.include?("seven") || (reset_in && reset_in > 18_000)
+              "seven_day"
+            end
+      next unless key
+
+      used = if v["used_percentage"]
+               v["used_percentage"].to_f.round(1)
+             elsif v["remaining_fraction"]
+               ((1.0 - v["remaining_fraction"].to_f) * 100.0).round(1)
+             end
+
+      resets_at = parse_time(v["resets_at"] || v["reset_time"]) || (reset_in ? now + reset_in : nil)
+
+      out[key] = { "used_percentage" => used, "resets_at" => resets_at } if used && resets_at
+    end
+    out.empty? ? nil : out
+  end
+
   def self.statusline(input)
-    rate = input["rate_limits"]
-    if rate
-      dir = File.join(Dir.home, ".cache", "claude")
-      begin
-        FileUtils.mkdir_p(dir)
-        tmp = File.join(dir, "rate-limits.json.#{Process.pid}")
-        File.write(tmp, JSON.generate(rate.merge("updated_at" => Time.now.to_i)) + "\n")
-        File.rename(tmp, File.join(dir, "rate-limits.json"))
-      rescue SystemCallError
-        # The status line still prints; the mod keeps showing the last value it read
-      end
+    if (rate = input["rate_limits"])
+      write_rate_file(File.join(Dir.home, ".cache", "claude"), rate)
+    elsif (quota = input["quota"]) && (agy_rate = extract_agy_rate(quota))
+      write_rate_file(File.join(Dir.home, ".cache", "antigravity"), agy_rate)
     end
 
     c = input["context_window"] || {}

@@ -2,11 +2,13 @@ import { View, div, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { exec, home, readTextFile, theme } from "herdr";
 
-// The 5-hour and weekly rate-limit windows of Claude and Codex, through agent-rate (bin/agent-rate).
+// The 5-hour and weekly rate-limit windows of Claude, Codex and Antigravity, through agent-rate (bin/agent-rate).
 // Claude: `agent-rate statusline`, the Claude Code status line command, writes the status
 // line's rate_limits to ~/.cache/claude/rate-limits.json, and this reads that file.
 // Codex: `agent-rate codex` prints the last rate_limits in Codex's newest session logs.
-// Both are the account's values and change whenever any session gets a reply.
+// Antigravity: `agent-rate statusline`, configured in Antigravity CLI's settings.json,
+// writes the converted rate limits to ~/.cache/antigravity/rate-limits.json, and this reads that file.
+// All are the account's values and change whenever any session gets a reply.
 // No shell: the same code runs on macOS, Linux and Windows.
 //
 // Each window has two bars. The top one is the time gone in the window (the pace, the
@@ -23,6 +25,7 @@ const WINDOWS = [
 
 // Each returns the JSON text, or null. A missing file or agent-rate shows "—" for that source
 const readClaude = () => readTextFile(`${home()}/.cache/claude/rate-limits.json`);
+const readAgy = () => readTextFile(`${home()}/.cache/antigravity/rate-limits.json`);
 // agent-rate on PATH, else in ~/.local/bin: a login shell's PATH may not have it, though an
 // interactive one does
 const AGENT_RATE = ["agent-rate", `${home()}/.local/bin/agent-rate`];
@@ -42,6 +45,7 @@ const SOURCES = [
   // Icons that ship with Herdr in ~/.config/herdr-app/icons (in color, so drawn with image)
   { key: "claude", label: "Claude", icon: "icons/claude.svg", read: readClaude },
   { key: "codex", label: "Codex", icon: "icons/codex.svg", read: readCodex },
+  { key: "agy", label: "Antigravity", icon: "icons/antigravity.svg", read: readAgy },
 ];
 
 export default class Rate extends View {

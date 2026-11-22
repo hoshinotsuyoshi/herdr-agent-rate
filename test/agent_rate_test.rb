@@ -48,6 +48,7 @@ class AgentRateTest < Minitest::Test
   end
 
   def rate_file = File.join(@home, ".cache", "claude", "rate-limits.json")
+  def agy_rate_file = File.join(@home, ".cache", "antigravity", "rate-limits.json")
 
   # A Codex session log under <codex_home>/sessions/YYYY/MM/DD with the given token_count rate limits
   def codex_log(name, *limits, codex_home: File.join(@home, ".codex"), mtime: nil)
@@ -124,6 +125,34 @@ class AgentRateTest < Minitest::Test
     kept = File.read(rate_file)
     statusline("model" => { "display_name" => "x" })
     assert_equal kept, File.read(rate_file)
+  end
+
+  def test_statusline_writes_antigravity_quota
+    before = Time.now.to_i
+    statusline(
+      "product" => "antigravity",
+      "model" => { "display_name" => "Gemini 3.8 Flash (Medium)" },
+      "context_window" => { "context_window_size" => 1_048_576, "used_percentage" => 5 },
+      "quota" => {
+        "gemini-weekly" => {
+          "remaining_fraction" => 0.85,
+          "reset_time" => "2026-11-29T12:00:00Z",
+          "reset_in_seconds" => 576_000,
+        },
+        "gemini-5h" => {
+          "remaining_fraction" => 0.4,
+          "reset_in_seconds" => 10_800,
+        },
+      },
+    )
+    saved = JSON.parse(File.read(agy_rate_file))
+    expected_week_resets = Time.utc(2026, 11, 29, 12, 0, 0).to_i
+    assert_equal 15.0, saved.dig("seven_day", "used_percentage")
+    assert_equal expected_week_resets, saved.dig("seven_day", "resets_at")
+    assert_equal 60.0, saved.dig("five_hour", "used_percentage")
+    assert_includes (before + 10_800)..(Time.now.to_i + 10_800), saved.dig("five_hour", "resets_at")
+    assert_includes before..(Time.now.to_i), saved["updated_at"]
+    assert_equal ["rate-limits.json"], Dir.children(File.dirname(agy_rate_file))
   end
 
   def test_statusline_unwritable_home_still_prints
