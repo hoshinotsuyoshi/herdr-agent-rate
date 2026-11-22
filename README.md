@@ -1,17 +1,18 @@
 # herdr-agent-rate
 
-A [Herdr](https://herdr.dev) mod that shows the 5-hour and weekly rate limits of Claude Code and Codex as bars, and `agent-rate`, the small program that gets those limits where the mod can read them.
+A [Herdr](https://herdr.dev) mod that shows the 5-hour and weekly rate limits of Claude Code, Codex, and Antigravity, and `agent-rate`, the small program that gets those limits where the mod can read them.
 
 ![herdr-agent-rate](preview.png)
 
-Each window has two bars. The top one is how much of the window has gone by; the bottom one is how much of the limit you have used. The 5-hour reset time appears beside the top bar. The weekly reset date appears beside the top bar, with its 24-hour local time beside the bottom bar. When usage gets ahead of time, the usage bar turns red: at this pace you run out before the window resets.
+The sidebar shows a single compact row with each active source's icon and 5-hour / weekly used percentages. If all three sources are active and the numbers do not fit, it shows the weekly percentage (or the 5-hour percentage when the weekly one is missing). Click the row to open the popover above it. For each source and window, the popover has two bars: the top one is how much of the window has gone by; the bottom one is how much of the limit you have used. The 5-hour reset time appears beside the top bar. The weekly reset date appears beside the top bar, with its 24-hour local time beside the bottom bar. When usage gets ahead of time, the usage bar turns red: at this pace you run out before the window resets.
 
 ## How the numbers get there
 
 - **Claude**: Claude Code passes `rate_limits` to its status line command on every reply. With `agent-rate statusline` as that command, it prints a status line and writes them to `~/.cache/claude/rate-limits.json`. The mod reads that file.
 - **Codex**: Codex writes `rate_limits` into its session logs (`~/.codex/sessions/**/rollout-*.jsonl`, or under `$CODEX_HOME`). The mod runs `agent-rate codex`, which prints the last ones from the newest logs.
+- **Antigravity**: Antigravity passes `quota` to its status line command. `agent-rate statusline` reads only `gemini-5h` and `gemini-weekly`, converts them to the two windows, and writes `~/.cache/antigravity/rate-limits.json`. The mod reads that file.
 
-The mod reads both every 10 seconds. The limits are your account's, so any session updates them, but only when it gets a reply: a window shows `—` once it has reset and no session has replied since, and so does a source the mod can't read.
+The mod reads all three sources every 10 seconds. The limits are your account's, so any session updates them, but only when it gets a reply: a window shows `—` once it has reset and no session has replied since, and so does a source the mod can't read.
 
 There is one file for Claude, and every Claude Code that runs `agent-rate statusline` overwrites it. If you use Claude Code with more than one account (another `CLAUDE_CONFIG_DIR`, say), they take turns writing their own limits, and the bars jump between them. Use `agent-rate statusline` with only one of them.
 
@@ -19,7 +20,7 @@ There is one file for Claude, and every Claude Code that runs `agent-rate status
 
 - Herdr (tested with herdr-app 0.1.15 on macOS). The mod runs no shell, so the same files work on macOS, Linux and Windows.
 - `agent-rate` on your `PATH`: the prebuilt binary (macOS arm64, Linux x86_64 and arm64, Windows x86_64) or the Ruby script (Ruby 3.4 or later, standard library only).
-- Claude Code and/or Codex CLI. Their icons are the ones Herdr ships in `~/.config/herdr-app/icons`.
+- Claude Code, Codex CLI, and/or Antigravity CLI. Their icons are the ones Herdr ships in `~/.config/herdr-app/icons`.
 
 ## Install
 
@@ -62,6 +63,16 @@ fi
 
 Codex needs nothing set up.
 
+### The Antigravity status line
+
+Set it in `~/.gemini/antigravity-cli/settings.json`:
+
+```json
+{ "statusLine": { "type": "command", "command": "agent-rate statusline" } }
+```
+
+It prints the same model and context summary as the Claude status line, and writes the converted `gemini-5h` and `gemini-weekly` quota values to `~/.cache/antigravity/rate-limits.json`.
+
 ### The mod
 
 Ask the agent in Herdr to add it: give it `herdr.dev/mods/hoshinotsuyoshi/herdr-agent-rate` or this repo's URL. Or by hand:
@@ -71,10 +82,10 @@ git clone https://github.com/hoshinotsuyoshi/herdr-agent-rate.git
 cp -R herdr-agent-rate/mods/agent-rate ~/.config/herdr-app/mods/agent-rate
 ```
 
-Then put it in your layout (`~/.config/herdr-app/layouts/<name>.json`). It is drawn for a sidebar column (268px wide in the preview) and needs about 170px of height, for example at the bottom of the sidebar:
+Then put it in your layout (`~/.config/herdr-app/layouts/<name>.json`). It needs 32px of height for the compact sidebar row; the detail popover opens above it:
 
 ```json
-{ "id": "agent-rate", "type": "block", "content": { "mod": "agent-rate" }, "size": { "px": 170 } }
+{ "id": "agent-rate", "type": "block", "content": { "mod": "agent-rate" }, "size": { "px": 32 } }
 ```
 
 ## The binary
