@@ -45,18 +45,11 @@ module AgentRate
     return nil unless quota.is_a?(Hash)
 
     out = {}
-    quota.each do |k, v|
+    { "gemini-5h" => "five_hour", "gemini-weekly" => "seven_day" }.each do |name, key|
+      v = quota[name]
       next unless v.is_a?(Hash)
 
-      name = k.to_s.downcase
       reset_in = v["reset_in_seconds"]&.to_i
-      key = if name.include?("5h") || name.include?("five") || (reset_in && reset_in <= 18_000)
-              "five_hour"
-            elsif name.include?("week") || name.include?("seven") || (reset_in && reset_in > 18_000)
-              "seven_day"
-            end
-      next unless key
-
       used = if v["used_percentage"]
                v["used_percentage"].to_f.round(1)
              elsif v["remaining_fraction"]

@@ -155,6 +155,40 @@ class AgentRateTest < Minitest::Test
     assert_equal ["rate-limits.json"], Dir.children(File.dirname(agy_rate_file))
   end
 
+  def test_statusline_selects_only_exact_gemini_quotas
+    quota = {
+      "3p-5h" => { "remaining_fraction" => 1, "reset_time" => "2026-11-22T23:06:13Z", "reset_in_seconds" => 17_992 },
+      "3p-weekly" => { "remaining_fraction" => 1, "reset_time" => "2026-11-29T18:06:13Z", "reset_in_seconds" => 604_792 },
+      "gemini-5h" => { "remaining_fraction" => 0.60508156, "reset_time" => "2026-11-22T18:24:17Z", "reset_in_seconds" => 1_076 },
+      "gemini-argon-wtu-weekly" => { "remaining_fraction" => 1, "reset_time" => "2026-11-29T18:06:13Z", "reset_in_seconds" => 604_792 },
+      "gemini-weekly" => { "remaining_fraction" => 0.8884222, "reset_time" => "2026-11-29T13:24:17Z", "reset_in_seconds" => 587_876 },
+    }
+    expected = {
+      "five_hour" => { "used_percentage" => 39.5, "resets_at" => Time.utc(2026, 11, 22, 18, 24, 17).to_i },
+      "seven_day" => { "used_percentage" => 11.2, "resets_at" => Time.utc(2026, 11, 29, 13, 24, 17).to_i },
+    }
+
+    [quota, quota.to_a.reverse.to_h].each do |ordered_quota|
+      statusline("quota" => ordered_quota)
+      assert_equal expected, JSON.parse(File.read(agy_rate_file)).except("updated_at")
+    end
+  end
+
+  def test_statusline_with_only_one_exact_gemini_quota
+    {
+      "gemini-5h" => ["five_hour", 60.0],
+      "gemini-weekly" => ["seven_day", 15.0],
+    }.each do |name, (key, used)|
+      statusline("quota" => {
+        "3p-5h" => { "remaining_fraction" => 0, "reset_in_seconds" => 100 },
+        name => { "remaining_fraction" => 1.0 - used / 100, "reset_in_seconds" => 3_600 },
+      })
+      saved = JSON.parse(File.read(agy_rate_file)).except("updated_at")
+      assert_equal [key], saved.keys
+      assert_equal used, saved.dig(key, "used_percentage")
+    end
+  end
+
   def test_statusline_unwritable_home_still_prints
     File.write(File.join(@home, ".cache"), "a file, not a directory")
     assert_equal "x | ctx 0k / 0k (0%)\n", statusline("model" => { "display_name" => "x" }, "rate_limits" => RATE)
